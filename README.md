@@ -37,26 +37,33 @@ DeepSeek Harness 的**渐进式工具发现**插件。把体积大的工具集�
 
 ## 安装
 
-### 方式 A：overlay 直接挂载（改代码即生效，不落盘）
+推荐**方式 A：装进 profile（持久）**。装好后插件出现在 GUI 的插件列表里，可以启用 / 停用 / 卸载，改配置只需重启 DSH。
 
-```sh
-cd /path/to/deepseek-harness
-pnpm dsh web --patch /absolute/path/to/dsh-plugin-tool-discovery/overlay.local.yml
+### 方式 A：装进 profile（推荐）
+
+插件自带 `cordis.patch.yml`，并通过 `package.json` 的 `dsh.bundle.patch` 声明：
+
+```json
+"dsh": { "bundle": { "patch": "./cordis.patch.yml" } }
 ```
 
-`overlay.local.yml` 里的 `name` 必须是指向 `index.js` 的**绝对路径**。改完插件重启即可，无需安装。
-
-> **0.2.1-rc.5 的差异**：该版本没有构建产物 `apps/cli/lib/bin.js`，要从源码入口启动：
-> `node --import tsx/esm apps/cli/src/bin.ts web --patch <overlay.local.yml>`。
-> `--patch` 与 `--dump-config` 两个选项在 rc.5 里都还在。
-
-### 方式 B：装进 profile（持久）
+本地开发目录直接用 `link:` 挂进 profile：
 
 ```sh
-pnpm dsh plugin --profile web add /absolute/path/to/dsh-plugin-tool-discovery
+cd ~/.dsh/profiles/web
+pnpm add link:/absolute/path/to/dsh-plugin-tool-discovery
 ```
 
-包声明了 `dsh.bundle.patch`，`dsh` 会把它追加进 `dsh.profile.bundles`。`cordis.patch.yml` 按**包名**引用，Node 的模块解析才找得到。
+然后把包名加进 `package.json` 的 `dsh.profile.bundles` 数组：
+
+```json
+{
+  "dsh": { "profile": { "bundles": ["dsh-plugin-tool-discovery"] } },
+  "dependencies": { "dsh-plugin-tool-discovery": "link:/absolute/path/to/dsh-plugin-tool-discovery" }
+}
+```
+
+`cordis.patch.yml` 按**包名**引用（`name: dsh-plugin-tool-discovery`），Node 的模块解析才找得到。
 
 验证层是否生效：
 
@@ -64,12 +71,47 @@ pnpm dsh plugin --profile web add /absolute/path/to/dsh-plugin-tool-discovery
 pnpm dsh --profile web --dump-config | grep -A 4 tool-discovery
 ```
 
+输出里应出现这一段，`name` 是**包名**而不是文件路径：
+
+```yaml
+# == dsh-plugin-tool-discovery
+- id: tool-discovery
+  name: dsh-plugin-tool-discovery
+  config:
+    ...
+```
+
+也可以从 registry 装：`pnpm dsh plugin --profile web add dsh-plugin-tool-discovery`。
+
+> **Windows 提示**：`link:` 依赖需要在 `node_modules` 里建**目录联接（Junction）**，不是 WSL 符号链接。WSL 的 `ln -s` 在 `/mnt/c` 上建的链，Windows Node 侧 `realpath` 会报 `EACCES: permission denied`。用 PowerShell 建：
+> ```powershell
+> New-Item -ItemType Junction -Path node_modules\dsh-plugin-tool-discovery -Target D:\path\to\dsh-plugin-tool-discovery
+> ```
+
+### 方式 B：overlay 挂载（临时调试，不进插件列表）
+
+```sh
+cd /path/to/deepseek-harness
+pnpm dsh web --patch /absolute/path/to/dsh-plugin-tool-discovery/overlay.local.yml
+```
+
+`overlay.local.yml` 里的 `name` 必须是指向 `index.js` 的**绝对路径**。
+本仓库只保留 `overlay.example.yml` 模板，实际文件要自己复制一份并改成绝对路径（它含本机路径，不进版本控制）。
+
+> 这种模式下插件在 GUI 里能停用，但 `moduleName` 是文件 URL 而不是包名，和方式 A 长得不一样；而且**不要同时用两种方式**——同一个 `id` 出现两行，插件列表会把它标成 `unaddressable`（不可停用）。
+
+> **0.2.1-rc.5 的差异**：该版本没有构建产物 `apps/cli/lib/bin.js`，要从源码入口启动：
+> `node --import tsx/esm apps/cli/src/bin.ts web --patch <overlay.local.yml>`。
+> `--patch` 与 `--dump-config` 两个选项在 rc.5 里都还在。
+
 ## 配置
+
+配置文件是插件自带的 `cordis.patch.yml`。它同时是**插件清单**（GUI 插件列表读它）和**配置载体**：
 
 ```yaml
 - insert:
     - id: tool-discovery
-      name: '/absolute/path/to/dsh-plugin-tool-discovery/index.js'
+      name: 'dsh-plugin-tool-discovery'   # 包名，不是路径
       config:
         defer: ['mcp__*']          # 命中这些模式的全局工具被延迟
         keepVisible: []            # 从 defer 里豁免（如 'mcp__agent-mail__*'）
@@ -82,6 +124,9 @@ pnpm dsh --profile web --dump-config | grep -A 4 tool-discovery
         descriptionChars: 120      # 目录里每条描述截断长度
         order: 3050                # 提示段排序位（TOOL_COMPUTER_USE 3000 与 MCP_SERVERS 3100 之间）
 ```
+
+> **patch 的 `config` 是整体替换，不是深合并。** 想改一处，得把整份 config 重新写全。
+> 改完**必须重启 DSH**——插件没有 config 热加载（`resolveSettings` 只在 `apply()` 求值一次，也没有 `fs.watch`）。
 
 默认只延迟 `mcp__*`：没有 MCP 的部署里，插件除注册一个检索工具外**不改变任何可见性**（不会调用 `restrict`）。
 

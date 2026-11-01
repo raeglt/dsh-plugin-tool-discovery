@@ -1,5 +1,6 @@
-# Machine-local overlay: holds this host's absolute paths and the live config,
-# so it must never be committed. overlay.example.yml is the template to keep.
+# Machine-local overlay: holds this host's absolute paths, so it must never be
+# committed. Only needed for the "uninstalled checkout" debugging path.
+# The live config now ships inside cordis.patch.yml (the bundle patch layer).
 overlay.local.yml
 
 # Dependencies and build output

@@ -1,8 +1,135 @@
+# dsh-plugin-tool-discovery：渐进式工具发现。
+#
+# 这个文件是插件自带的 bundle patch 层。DSH 组装配置时会把它与其它 bundle 层、
+# profile 用户层一起叠加，因此本插件的默认配置随插件一起分发，profile 侧无需重复声明。
+# 需要改配置时，在 profile 的 cordis.patch.yml 里加一行同 id 的覆盖即可（config 为整体替换）：
+#
+#   - id: tool-discovery
+#     config:
+#       defer: ['mcp__*']
+#
+# 作用范围：把低频工具族（各 MCP 服务器、插件工具族）从每次请求的工具声明里撤下，
+# 改为在系统提示里放一份紧凑目录；模型用 search_tools 按需把工具捞回来。
+# 核心工具始终常驻，被撤下的工具永远还能通过 search_tools 找回。
 - insert:
     - id: tool-discovery
       name: 'dsh-plugin-tool-discovery'
       config:
-        defer: ['mcp__*']
-        keepVisible: []
-        maxResults: 8
+        # --- 撤下哪些 -------------------------------------------------------
+        defer:
+          # MCP 服务器：工具多，偶尔用。
+          - 'mcp__*'
+          # 知识库插件族。
+          - 'knowledge_*'
+          # 梦境 / 记忆插件族。
+          - 'dream_*'
+          # 智能体团队编排。
+          - 'team_task_*'
+          - 'send_message'
+          - 'spawn_teammate'
+          - 'interrupt_agent'
+          - 'wait_agent'
+          - 'list_agents'
+          # 定时任务与自动化。
+          - 'automation_*'
+          - 'schedule_*'
+          # MCP 连接器的管理面：只在装插件时用。
+          - 'mcp_connector_*'
+          # 上下文管理。compress/decompress/search_context 保持常驻：
+          # 它们是内建助手，模型随时可能不假思索地用，而它们几乎不占上下文。
+          - 'acp_*'
+          # 专家名录。
+          - 'list_expert*'
+          - 'summon_expert*'
+          - 'get_expert_team'
+          # 子智能体与工作流。
+          - 'subagent'
+          - 'subagent_fork'
+          - 'workflow'
+          # 终端与后台作业。
+          - 'terminal_*'
+          - 'job_*'
+          # 杂项管理工具。
+          - 'get_goal'
+          - 'create_goal'
+          - 'update_goal'
+          - 'create_skill'
+          - 'plugin_manager'
+          - 'ask_user_question'
+          - 'propose_custom_expert'
+          - 'propose_expert_team'
+          - 'read_image'
+          - 'working_directory'
+          - 'present'
+          # REST 网关工具族（dsh-api-tools）。它的 toolPrefix 是 api_tool，
+          # 于是每个网关工具都渲染成 api_tool_<网关>_<工具>，一条规则覆盖整族，
+          # 以后加多少网关都不用改这里。
+          - 'api_tool_*'
+
+        # --- 不进目录，但仍然能搜到 -------------------------------------------
+        # REST 网关族是按名字调用的（"调用 create_refund"），给它一个目录条目
+        # 纯属浪费上下文。所以它保持撤下（不进请求）、保持可搜，但目录整段跳过它。
+        silent:
+          - 'api_tool_*'
+
+        # --- 绝不能藏起来 ---------------------------------------------------
+        # 每天都要用的核心工具。坏了模型就会卡住，所以无论 defer 规则怎么写，
+        # 这些都保持常驻。
+        keepVisible:
+          - 'read'
+          - 'write'
+          - 'edit'
+          - 'bash'
+          - 'pwsh'
+          - 'grep'
+          - 'glob'
+          - 'web_search'
+          - 'web_fetch'
+
+        # --- 目录分组 ---------------------------------------------------------
+        # MCP 工具按服务器名自己分组。普通工具得显式给规则，否则每个工具各占一行。
+        # 顺序有意义：第一条命中的规则生效。
+        groups:
+          - name: 'knowledge tools'
+            match: ['knowledge_*']
+          - name: 'dream tools'
+            match: ['dream_*']
+          - name: 'mcp-connector tools'
+            match: ['mcp_connector_*']
+          - name: 'team tools'
+            match:
+              - 'team_task_*'
+              - 'send_message'
+              - 'spawn_teammate'
+              - 'interrupt_agent'
+              - 'wait_agent'
+              - 'list_agents'
+          - name: 'automation tools'
+            match: ['automation_*', 'schedule_*']
+          - name: 'expert tools'
+            match: ['list_expert*', 'summon_expert*', 'get_expert_team']
+          - name: 'context tools'
+            match: ['acp_*']
+          - name: 'terminal tools'
+            match: ['terminal_*', 'job_*']
+          - name: 'subagent tools'
+            match: ['subagent', 'subagent_fork', 'workflow']
+          - name: 'meta tools'
+            match: ['get_goal', 'create_goal', 'update_goal', 'create_skill', 'plugin_manager', 'ask_user_question', 'propose_custom_expert', 'propose_expert_team']
+          - name: 'fs tools'
+            match: ['read_image', 'working_directory', 'present']
+          - name: 'api-tools'
+            match: ['api_tool_*']
+
+        # 一组工具攒到这个数量就折成一行目录。
+        # 实测：3 把约 74 行的目录压到约 25 行，真实能力短语的召回率 14/14。
+        collapseAbove: 3
+
+        # 每个智能体在淘汰之前最多同时加载多少个工具。
         maxLoaded: 24
+
+        # 一次搜索最多返回几个匹配。
+        maxResults: 8
+
+        # 目录每行的字符长度。
+        descriptionChars: 120
