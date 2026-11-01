@@ -2,6 +2,11 @@
   "name": "dsh-plugin-tool-discovery",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/raeglt/dsh-plugin-tool-discovery.git"
+  },
   "description": "Progressive tool discovery for DeepSeek Harness: declare a compact tool catalog and load MCP/optional tools on demand",
   "type": "module",
   "main": "index.js",
