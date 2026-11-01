@@ -1,0 +1,14 @@
+# Machine-local overlay: holds this host's absolute paths and the live config,
+# so it must never be committed. overlay.example.yml is the template to keep.
+overlay.local.yml
+
+# Dependencies and build output
+node_modules/
+pnpm-lock.yaml
+
+# Editor and OS noise
+.vscode/
+.idea/
+*.log
+.DS_Store
+Thumbs.db

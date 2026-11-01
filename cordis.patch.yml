@@ -1,0 +1,8 @@
+- insert:
+    - id: tool-discovery
+      name: 'dsh-plugin-tool-discovery'
+      config:
+        defer: ['mcp__*']
+        keepVisible: []
+        maxResults: 8
+        maxLoaded: 24

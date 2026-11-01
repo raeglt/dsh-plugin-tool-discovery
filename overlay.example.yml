@@ -1,0 +1,12 @@
+# Local overlay for an uninstalled checkout.
+#
+#   pnpm dsh web --patch /absolute/path/to/overlay.example.yml
+#
+# The plugin path must be absolute. `name` inside this file is resolved by the
+# loader from this file's directory, and this plugin has no runtime
+# dependencies, so loading stays valid as the harness upgrades.
+- insert:
+    - id: tool-discovery
+      name: '/absolute/path/to/dsh-plugin-tool-discovery/index.js'
+      config:
+        defer: ['mcp__*']
